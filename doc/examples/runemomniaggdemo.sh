@@ -86,7 +86,12 @@ function run_cmd {
       echo "Starting netperfs on localhost targeting ${TARGET} for $TEST" | tee -a $TESTLOG
       id=`printf "%.5d" $i`
       # Start a new stream and output the interim results to and .out file.
-      $NETPERF -H $TARGET $NETPERF_CMD 2>&1 > ./${TEST_MODE}/netperf_${TEST}_${id}_to_${TARGET}.out &
+
+      ($NETPERF -H $TARGET -t TCP_STREAM -l 120 > /dev/null;\
+      $NETPERF -H $TARGET $NETPERF_CMD 2>&1 > ./${TEST_MODE}/netperf_${TEST}_${id}_to_${TARGET}.out;\
+      $NETPERF -H $TARGET -t TCP_STREAM -l 120 > /dev/null;) &
+
+      # $NETPERF -H $TARGET $NETPERF_CMD 2>&1 > ./${TEST_MODE}/netperf_${TEST}_${id}_to_${TARGET}.out &
 
       sleep 1
 
@@ -94,6 +99,15 @@ function run_cmd {
 
       if [ $i -eq $PAUSE_AT ]
       then
+         until [ $(ls ./${TEST_MODE} | grep ".out" | wc -l) -ge $PAUSE_AT ]
+         do
+           echo "Waiting, true_started_cnt=$(ls ./${TEST_MODE} | grep ".out" | wc -l)"
+           sleep 2
+         done
+
+     ###wait for our test duration
+         sleep $DURATION
+
           NOW=`date +%s.%N`
           echo "Pausing for $DURATION seconds at $NOW with $i netperfs running for $TEST" | tee -a $TESTLOG
           sleep $DURATION
@@ -249,16 +263,16 @@ function run_cmd_no_echelon {
       # be three sequential runs of netperf, with the length of the first and
       # last of each long enough to be longer than any skew, and their results
       # ignored.
-      ($NETPERF -H $TARGET -t TCP_STREAM -l 20 > /dev/null;\
+      ($NETPERF -H $TARGET -t TCP_STREAM -l 120 > /dev/null;\
       $NETPERF -H $TARGET $NETPERF_CMD 2>&1 > ./${TEST_MODE}/netperf_${TEST}_${id}_to_${TARGET}.out;\
-      $NETPERF -H $TARGET -t TCP_STREAM -l 20 > /dev/null;) &
+      $NETPERF -H $TARGET -t TCP_STREAM -l 120 > /dev/null;) &
 
       i=`expr $i + 1`
 
       if [ $i  -eq $PAUSE_AT ]
       then
           NOW=`date +%s.%N`
-          echo "Pausing for `expr $DURATION + 2 \* 20` seconds at $NOW with $i netperfs running for $TEST" | tee -a $TESTLOG
+          echo "Pausing for `expr $DURATION + 2 \* 120` seconds at $NOW with $i netperfs running for $TEST" | tee -a $TESTLOG
       fi
     done
 
